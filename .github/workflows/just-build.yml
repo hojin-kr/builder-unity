@@ -1,0 +1,89 @@
+# This is a basic workflow to help you get started with Actions
+
+name: PatternRun-just-build
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+#   push:
+#     branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      semantic_versioning:
+        description: 'Version Tgg {MAJOR}.{MINOR}.{PATCH} ex) 1.0.0'
+        default: '1.0.0'
+        required: true
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  buildForAndroidPlatform:
+    env:
+      TARGET: ${{secrets.TARGET}}
+      BRANCH: main
+    name: Build my project ✨
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - iOS # Build an iOS player.
+          - Android # Build an Android .apk standalone app.
+
+    steps:
+
+      # start webhook
+      - name: start webhook
+        run: |-
+          curl -d '{"content":"빌드만 시작 ${{ env.TARGET }} ${{ env.BRANCH }} https://github.com/patternRun/buildTest1/actions/runs/${{ github.run_id }}"}' -H "Content-Type: application/json" -X POST ${{secrets.webhook_discord}}
+
+      # Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          lfs: true
+          token: ${{ secrets.REPO_TOKEN }}
+#           repository: ${{ env.TARGET }}
+#           ref: ${{ env.BRANCH }}
+      - run: |
+           git config --global user.email "builder@gmail.com"
+           git config --global user.name "buildername"
+           git remote add upstream https://github.com/${{secrets.YOUR_GAME_CODE}}.git
+           git config pull.rebase true
+           git pull upstream main
+
+      - uses: actions/cache@v2
+        with:
+          path: Library
+          key: Library-${{ matrix.targetPlatform }}
+          restore-keys: Library-
+
+      # Build
+      - name: Build project
+        uses: game-ci/unity-builder@v2
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          BUILD_NAME : PatternRun
+        with:
+          targetPlatform: ${{ matrix.targetPlatform }}
+          unityVersion: 2020.3.11f1
+          versioning: Custom
+          version: ${{ github.event.inputs.semantic_versioning }}
+          androidAppBundle: true
+          androidKeystoreName: user.keystore
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Build-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}
+
+      # start webhook
+      - name: start webhook
+        run: |-
+          curl -d '{"content":"빌드만 종료 ${{ env.TARGET }} ${{ env.BRANCH }} ${{ github.event.inputs.semantic_versioning }} https://github.com/patternRun/buildTest1/actions/runs/${{ github.run_id }}"}' -H "Content-Type: application/json" -X POST ${{secrets.webhook_discord}}
+
