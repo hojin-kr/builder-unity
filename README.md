@@ -1,4 +1,5 @@
 # builder-unity-ci
+Unity 프로젝트를 외부 저장소에서 Pull 받아 빌드 및 테스트 트랙 배포. 
 github Action을 활용한 Unity Builder-ci   
 https://github.com/game-ci/unity-builder
 
